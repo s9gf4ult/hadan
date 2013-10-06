@@ -20,19 +20,28 @@ library
 
   exposed-modules:     Hadan.Data.Candle
                      , Hadan.Data.Parsers.AlorTrade
+                     , Hadan.AlorTrade
 
   build-depends:       base >= 3 && <5
                      , Decimal
-                     , hdbi >= 1.2
-                     , text
                      , attoparsec
+                     , attoparsec-conduit
+                     , conduit
+                     , failure
+                     , hdbi >= 1.2
+                     , http-conduit
+                     , text
                      , time
+                     , transformers
+                     , url
 
 executable hadan
   main-is:             hadan.hs
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base >= 3 && <5
+                     , Decimal
+                     , attoparsec
                      , attoparsec-conduit
                      , conduit
                      , hdbi >= 1.2
@@ -41,8 +50,6 @@ executable hadan
                      , http-conduit
                      , text
                      , time
-                     , Decimal
-                     , attoparsec
                      , transformers
   
   -- hs-source-dirs:      
