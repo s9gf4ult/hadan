@@ -32,6 +32,7 @@ library
                      , http-conduit
                      , text
                      , time
+                     , old-locale
                      , transformers
                      , url
 
@@ -45,12 +46,15 @@ executable hadan
                      , attoparsec-conduit
                      , conduit
                      , hdbi >= 1.2
+                     , old-locale
                      , hdbi-conduit >= 1.2
                      , hdbi-sqlite >= 1.2
                      , http-conduit
                      , text
                      , time
                      , transformers
+                     , url
+                     , failure
   
   -- hs-source-dirs:      
   default-language:    Haskell2010

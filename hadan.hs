@@ -6,10 +6,13 @@
 module Main where
 
 import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
 import Data.Conduit
-import Data.Conduit.Binary
 import Data.Conduit.Attoparsec
+import Data.Conduit.Binary
 import Data.Conduit.Text
+import Data.Time
+import Hadan.AlorTrade
 import Hadan.Data.Candle
 import Hadan.Data.Parsers.AlorTrade
 import Network.HTTP.Conduit
@@ -26,12 +29,7 @@ sinkCandle = do
       
 
 main = do
-  req <- parseUrl "http://history.alor.ru/?board=MICEX&ticker=GAZP&period=1&from=2013-09-01+9%3A0%3A0&to=&bars=100"
-  withManager $ \mngr -> do
-    resp <- http req mngr
-    responseBody resp
-      $$+- decode utf8
-      =$ (conduitParser $ parseCandle "MICEX" "GAZP" 1)
-      =$ sinkCandle
-            
-            
+  withManager $ \manager -> do
+    feedCandles manager MICEX "GAZP" PMin
+      Nothing
+      (L.mapM_ $ lift . print)
