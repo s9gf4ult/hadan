@@ -63,11 +63,21 @@ downloadOnce manager board ticker period to = do
   let (ResumableSource s fin) = responseBody resp
   return $ ResumableSource (s
                             $= decode utf8
-                            $= (conduitParser $ parseCandle (T.pack $ show board) ticker $ periodToMinutes period)
-                            $= L.map snd) fin
+                            $= (conduitParserEither $ parseCandle (T.pack $ show board) ticker $ periodToMinutes period)
+                            $= noErrors) fin
 
 
   where
+    noErrors = do
+      n <- await
+      case n of
+        Nothing -> return ()
+        Just next -> case next of
+          Left err -> noErrors
+          Right (_, cndl) -> do
+            yield cndl
+            noErrors
+    
     url = exportURL
           $ URL
           (Absolute
@@ -81,13 +91,19 @@ downloadOnce manager board ticker period to = do
 
 
 feedCandles :: (MonadIO m, MonadResource m, MonadBaseControl IO m)
-               => Manager -> Board -> Ticker -> Period -> Maybe UTCTime -> Sink Candle m ignore -> m ()
-feedCandles manager board ticker period gto sink = feedCandles' gto
+               => Manager -> Board -> Ticker -> Period -> Maybe UTCTime -> Maybe UTCTime -> Sink Candle m ignore -> m ()
+feedCandles manager board ticker period from gto sink = feedCandles' gto
   where
     feedCandles' to = do
       foldtime <- case to of
         Nothing -> liftIO getCurrentTime
         Just tt -> return tt
+      case from of
+        Nothing -> goFeed to foldtime
+        Just xfrom | xfrom < foldtime -> goFeed to foldtime
+                   | otherwise        -> return ()
+    
+    goFeed to foldtime = do
       res <- downloadOnce manager board ticker period to
       (_, mint) <- res $$+- U.zipSinks sink (L.fold (\t c -> min t $ cTime c) foldtime)
       when (mint < foldtime)
