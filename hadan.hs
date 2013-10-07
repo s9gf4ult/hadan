@@ -36,11 +36,8 @@ main = bracket
        (connectSqlite3 "out.sqlite")
        disconnect $ \con -> withTransaction con $ do
          withManager $ \manager -> do
-           feedCandles manager MICEX "GAZP" PMin
-             (Just $ UTCTime (fromGregorian 2013 08 00) 0)
-             Nothing
-             (insertAllRows con
-              "insert into candles(board, ticker, period, time, open, close, high, low, volume) values (?,?,?,?,?,?,?,?,?)")
+           feedCandles manager MICEX "GAZP" PMin Nothing
+             $$ insertAllRows con "insert into candles(board, ticker, period, time, open, close, high, low, volume) values (?,?,?,?,?,?,?,?,?)"
 
 
        

@@ -1,6 +1,7 @@
 {-# LANGUAGE
   FlexibleContexts
 , ScopedTypeVariables
+, BangPatterns
   #-}
 
 module Hadan.AlorTrade where
@@ -111,29 +112,26 @@ feedCandles manager board ticker period from gto sink = feedCandles' gto
     subMin = addUTCTime (-60)
 
 
--- downloadCandles :: forall m. (MonadIO m, MonadResource m, MonadBaseControl IO m)
---                    => Manager -> Board -> Ticker -> Period -> UTCTime -> Maybe UTCTime -> Source m Candle
--- downloadCandles manager board ticker period frm to = downloadCandles' frm
---   where
---     downloadCandles' :: UTCTime -> Source m Candle
---     downloadCandles' from = do
---       (ResumableSource res fin) <- lift $ downloadOnce manager board ticker period from
---       let lres = ResumableSource (transPipe lift res) fin
---       -- lres $$+- yieldUP
+downloadCandles :: forall m. (MonadIO m, MonadResource m, MonadBaseControl IO m)
+                   => Manager -> Board -> Ticker -> Period -> Maybe UTCTime -> Source m Candle
+downloadCandles manager board ticker period gto = downloadCandles' gto
+  where
+    downloadCandles' :: Maybe UTCTime -> Source m Candle
+    downloadCandles' to = do
+      foldtime <- case to of
+        Nothing -> liftIO getCurrentTime
+        Just nto -> return nto
+      res <- lift $ downloadOnce manager board ticker period to
+      (sres, _) <- lift $ unwrapResumable res
+      mint <- sres =$= (yieldFold foldtime)
+      when (mint < foldtime)
+        $ downloadCandles' $ Just $ subMin mint
 
---       -- lift $ res $$+- yieldUP
---       -- ((), maxt) <- res $$+- filterTo
---       --               =$ U.zipSinks yieldUP (L.fold (\x y -> max x (cTime y)) from)
---       -- when (maxt > from)
---       --   $ downloadCandles' $ plusMin maxt
---       undefined
-
---     yieldUP :: Sink Candle (ConduitM () Candle m) ()
---     yieldUP = do
---       x <- await
---       case x of
---         Nothing -> return ()
---         Just cndl -> lift $ yield cndl
-
---     filterTo = undefined
---     plusMin = undefined
+    yieldFold !mint = do
+      n <- await
+      case n of
+        Nothing -> return mint
+        Just cndl -> do
+          yield cndl
+          yieldFold $ min mint $ cTime cndl
+    subMin = addUTCTime (-60)
