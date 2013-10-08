@@ -21,20 +21,28 @@ library
   exposed-modules:     Hadan.Data.Candle
                      , Hadan.Data.Parsers.AlorTrade
                      , Hadan.AlorTrade
+                     , Hadan.Finam
 
   build-depends:       base >= 3 && <5
                      , Decimal
                      , attoparsec
                      , attoparsec-conduit
                      , conduit
+                     , dom-selector
                      , failure
                      , hdbi >= 1.2
                      , http-conduit
+                     , html-conduit
+                     , iconv
+                     , old-locale
                      , text
                      , time
-                     , old-locale
                      , transformers
                      , url
+                     , xml-conduit
+
+
+  ghc-options: -Wall
 
 executable hadan
   main-is:             hadan.hs

@@ -35,7 +35,7 @@ sinkCandle = do
 main = bracket
        (connectSqlite3 "out.sqlite")
        disconnect $ \con -> withTransaction con $ do
-         withManagerSettings (def {managerResponseTimeout = Just 60}) $ \manager -> do
+         withManagerSettings (def {managerResponseTimeout = Just 60000000}) $ \manager -> do
            downloadCandles manager MICEX "GAZP" PMin Nothing
              $$ insertAllRows con "insert into candles(board, ticker, period, time, open, close, high, low, volume) values (?,?,?,?,?,?,?,?,?)"
 
