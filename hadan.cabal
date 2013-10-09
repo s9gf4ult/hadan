@@ -28,11 +28,12 @@ library
                      , attoparsec
                      , attoparsec-conduit
                      , conduit
+                     , containers
                      , dom-selector
                      , failure
                      , hdbi >= 1.2
-                     , http-conduit
                      , html-conduit
+                     , http-conduit
                      , iconv
                      , old-locale
                      , text
