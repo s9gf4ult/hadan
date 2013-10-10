@@ -85,29 +85,64 @@ exportsAxis = descendant >=> element "tr" >=> attributeIs "class" "last"
                 >=> child >=> element "td"
                 >=> child >=> element "a" >=> findByContent "Экспорт котировок"
 
-getAHref :: Cursor -> T.Text
-getAHref cur = case node cur of
+-- | form#chartform
+chartformAxis :: Axis
+chartformAxis = descendant >=> element "form" >=> attributeIs "id" "chartform"
+
+getAttr :: Cursor -> T.Text -> T.Text
+getAttr cur name = case node cur of
   (NodeElement (Element _ attrs _)) ->
-    case M.lookup "href" attrs of
-      Nothing -> error "'href' attribute not found"
+    case M.lookup name attrs of
+      Nothing -> error $ show name ++ " attribute not found"
       Just r -> r
   _ -> error "Not a NodeElement"
 
 
-getLinkByAxis :: (MonadIO m, MonadResource m, MonadBaseControl IO m)
-                       => Manager -> Axis -> String -> m T.Text
-getLinkByAxis man axis url = do
-  doc <- downloadDoc man url
-  let c = axis $ fromDocument doc
-  case c of
-    [a] -> return $ getAHref a
-    _ -> fail "could not find element or found too much"
-
+getAttrByAxis :: T.Text -> Axis -> Document -> T.Text
+getAttrByAxis attr axis doc = case axis $ fromDocument doc of 
+  [cur] -> return $ getAttr cur attr
+  _ -> fail "could not find element or found too much"
 
 downloadFollower :: (MonadIO m, MonadResource m, MonadBaseControl IO m)
-                       => Manager -> m T.Text
+                    => Manager
+                    -> m (T.Text, T.Text) -- ^ Follower link and form action 
 downloadFollower man = do
-  gr <- mutHost (fixUrlHost host) . T.unpack <$> getLinkByAxis man graphicsAxis "http://www.finam.ru"
-  T.pack . mutHost (fixUrlHost host) . T.unpack <$> getLinkByAxis man exportsAxis gr
+  gr <- mutHost (fixUrlHost host)
+        . T.unpack
+        . getAttrByAxis "href" graphicsAxis
+        <$> downloadDoc man "http://www.finam.ru"
+  doc <- downloadDoc man gr
+  let follower = T.pack
+                 $ mutHost (fixUrlHost host)
+                 $ T.unpack $ getAttrByAxis "href" exportsAxis doc
+      action = getAttrByAxis "action" chartformAxis doc
   where
     host = Host (HTTP False) "www.finam.ru" Nothing
+
+tickParams :: Day -> Day -> String -> [(String, String)]
+tickParams from to stock = [("market", "1")
+                           ,("em", "3")
+                           ,("code", stock)
+                           ,("df", show df)
+                           ,("mf", show mf)
+                           ,("yf", show yf)
+                           ,("dt", show dt)
+                           ,("mt", show mt)
+                           ,("yt", show yt)
+                           ,("p", "2")
+                           ,("f", fname)
+                           ,("e", ".txt")
+                           ,("cn", stock)
+                           ,("dtf", "1")
+                           ,("tmf", "1")
+                           ,("MSOR", "0")
+                           ,("mstime", "on")
+                           ,("mstimever", "1")
+                           ,("sep", "1")
+                           ,("sep2", "2")
+                           ,("daft", "1")]
+  where
+    (yf, mf, df) = fromGregorian from
+    (yt, mt, dt) = fromGregorian to
+    fname = printf "%s_%s_%s" stock (fmtdt yf mf df) (fmtdt yt mt dt)
+    fmtdt y m d = printf "%02d%02d%02d" (y >= 2000 then y - 2000 else y - 1900) m d
