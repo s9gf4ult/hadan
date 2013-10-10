@@ -27,6 +27,7 @@ library
                      , Decimal
                      , attoparsec
                      , attoparsec-conduit
+                     , blaze-builder
                      , conduit
                      , containers
                      , dom-selector
@@ -34,6 +35,7 @@ library
                      , hdbi >= 1.2
                      , html-conduit
                      , http-conduit
+                     , http-types
                      , iconv
                      , old-locale
                      , text
@@ -53,17 +55,26 @@ executable hadan
                      , Decimal
                      , attoparsec
                      , attoparsec-conduit
+                     , blaze-builder
                      , conduit
+                     , containers
+                     , dom-selector
                      , failure
                      , hdbi >= 1.2
                      , hdbi-conduit >= 1.2
                      , hdbi-sqlite >= 1.2
+                     , html-conduit
                      , http-conduit
+                     , http-types
+                     , iconv
                      , old-locale
                      , text
                      , time
                      , transformers
                      , url
+                     , xml-conduit
+
+                     
   
   -- hs-source-dirs:      
   default-language:    Haskell2010

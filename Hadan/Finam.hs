@@ -53,10 +53,13 @@ fixUrlHost host url@(URL {url_type = ut}) = case ut of
   HostRelative -> url { url_type = Absolute host}
   _ -> url
 
-mutHost :: (URL -> URL) -> String -> String
-mutHost mut s = case importURL s of
+mutUrl :: (URL -> URL) -> String -> String
+mutUrl mut s = case importURL s of
   Nothing -> s
   Just u -> exportURL $ mut u
+
+addParameters :: [(String, String)] -> URL -> URL
+addParameters params url@(URL {url_params = oldp}) = url {url_params = oldp ++ params}
 
 nthChild :: Int -> Axis
 nthChild n = check isnth
@@ -107,42 +110,47 @@ downloadFollower :: (MonadIO m, MonadResource m, MonadBaseControl IO m)
                     => Manager
                     -> m (T.Text, T.Text) -- ^ Follower link and form action
 downloadFollower man = do
-  gr <- mutHost (fixUrlHost host)
+  gr <- mutUrl (fixUrlHost host)
         . T.unpack
         . getAttrByAxis "href" graphicsAxis
         <$> downloadDoc man "http://www.finam.ru"
-  doc <- downloadDoc man gr
-  let follower = T.pack
-                 $ mutHost (fixUrlHost host)
-                 $ T.unpack $ getAttrByAxis "href" exportsAxis doc
-      action = getAttrByAxis "action" chartformAxis doc
-  return (follower, action)
+  follower <- mutUrl (fixUrlHost host)
+              . T.unpack
+              . getAttrByAxis "href" exportsAxis
+              <$> downloadDoc man gr
+  action <- getAttrByAxis "action" chartformAxis
+            <$> downloadDoc man follower
+  return (T.pack follower, action)
   where
     host = Host (HTTP False) "www.finam.ru" Nothing
 
-tickParams :: Day -> Day -> String -> [(String, String)]
-tickParams from to stock = [("market", "1")
-                           ,("em", "3")
-                           ,("code", stock)
-                           ,("df", show df)
-                           ,("mf", show mf)
-                           ,("yf", show yf)
-                           ,("dt", show dt)
-                           ,("mt", show mt)
-                           ,("yt", show yt)
-                           ,("p", "2")
-                           ,("f", fname)
-                           ,("e", ".txt")
-                           ,("cn", stock)
-                           ,("dtf", "1")
-                           ,("tmf", "1")
-                           ,("MSOR", "0")
-                           ,("mstime", "on")
-                           ,("mstimever", "1")
-                           ,("sep", "1")
-                           ,("sep2", "2")
-                           ,("daft", "1")]
+tickUrl :: Day -> Day -> String -> URL -> URL
+tickUrl from to stock url@(URL {url_path = path,
+                                url_params = params}) = url {url_path = (fname ++ ".txt"),
+                                                             url_params = tickParams}
   where
+    tickParams :: [(String, String)]
+    tickParams = [("market", "1")
+                 ,("em", "3")
+                 ,("code", stock)
+                 ,("df", show df)
+                 ,("mf", show $ mf - 1) -- fucken magic
+                 ,("yf", show yf)
+                 ,("dt", show dt)
+                 ,("mt", show $ mt - 1)
+                 ,("yt", show yt)
+                 ,("p", "1")
+                 ,("f", fname)
+                 ,("e", ".txt")
+                 ,("cn", stock)
+                 ,("dtf", "1")
+                 ,("tmf", "1")
+                 ,("MSOR", "0")
+                 ,("mstime", "on")
+                 ,("mstimever", "1")
+                 ,("sep", "1")
+                 ,("sep2", "2")
+                 ,("datf", "6")]
     (yf, mf, df) = toGregorian from
     (yt, mt, dt) = toGregorian to
     fname = printf "%s_%s_%s" stock (fmtdt yf mf df) (fmtdt yt mt dt)
