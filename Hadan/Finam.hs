@@ -7,6 +7,7 @@ module Hadan.Finam where
 
 
 import Codec.Text.IConv
+import Control.Applicative
 import Control.Failure
 import Control.Monad
 import Control.Monad.IO.Class
@@ -46,6 +47,16 @@ downloadDoc manager url = do
   lbs <- responseBody resp $$+- sinkLbs
   let convlbs = convert "CP1251" "UTF-8" lbs
   return $ parseLBS convlbs
+
+fixUrlHost :: Host -> URL -> URL
+fixUrlHost host url@(Url {url_type = ut}) = case ut of
+  HostRelative -> url { url_type = Absolute host}
+  _ -> url
+
+mutHost :: (URL -> URL) -> String -> String
+mutHost mut s = case importURL s of
+  Nothing -> s
+  Just u -> exportURL $ mut u
 
 nthChild :: Int -> Axis
 nthChild n = check isnth
@@ -91,3 +102,12 @@ getLinkByAxis man axis url = do
   case c of
     [a] -> return $ getAHref a
     _ -> fail "could not find element or found too much"
+
+
+downloadFollower :: (MonadIO m, MonadResource m, MonadBaseControl IO m)
+                       => Manager -> m T.Text
+downloadFollower man = do
+  gr <- mutHost (fixUrlHost host) <$> getLinkByAxis man graphicsAxis "http://www.finam.ru"
+  mutHost (fixUrlHost host) <$> getLinkByAxis man exportsAxis gr
+  where
+    host = Host (HTTP False) "www.finam.ru" Nothing
