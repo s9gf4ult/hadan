@@ -49,7 +49,7 @@ downloadDoc manager url = do
   return $ parseLBS convlbs
 
 fixUrlHost :: Host -> URL -> URL
-fixUrlHost host url@(Url {url_type = ut}) = case ut of
+fixUrlHost host url@(URL {url_type = ut}) = case ut of
   HostRelative -> url { url_type = Absolute host}
   _ -> url
 
@@ -107,7 +107,7 @@ getLinkByAxis man axis url = do
 downloadFollower :: (MonadIO m, MonadResource m, MonadBaseControl IO m)
                        => Manager -> m T.Text
 downloadFollower man = do
-  gr <- mutHost (fixUrlHost host) <$> getLinkByAxis man graphicsAxis "http://www.finam.ru"
-  mutHost (fixUrlHost host) <$> getLinkByAxis man exportsAxis gr
+  gr <- mutHost (fixUrlHost host) . T.unpack <$> getLinkByAxis man graphicsAxis "http://www.finam.ru"
+  T.pack . mutHost (fixUrlHost host) . T.unpack <$> getLinkByAxis man exportsAxis gr
   where
     host = Host (HTTP False) "www.finam.ru" Nothing
