@@ -5,7 +5,7 @@
   #-}
 module Hadan.Finam where
 
-
+import Text.Printf
 import Codec.Text.IConv
 import Control.Applicative
 import Control.Failure
@@ -25,7 +25,7 @@ import Network.URL
 import System.IO (stderr, hPutStrLn)
 import System.Locale
 import Text.HTML.DOM
-import Text.XML (Document, Node(..), Element(..))
+import Text.XML (Document, Node(..), Element(..), Name(..))
 import Text.XML.Cursor
 import Text.XML.Scraping
 import Text.XML.Selector.TH
@@ -89,7 +89,7 @@ exportsAxis = descendant >=> element "tr" >=> attributeIs "class" "last"
 chartformAxis :: Axis
 chartformAxis = descendant >=> element "form" >=> attributeIs "id" "chartform"
 
-getAttr :: Cursor -> T.Text -> T.Text
+getAttr :: Cursor -> Name -> T.Text
 getAttr cur name = case node cur of
   (NodeElement (Element _ attrs _)) ->
     case M.lookup name attrs of
@@ -98,10 +98,10 @@ getAttr cur name = case node cur of
   _ -> error "Not a NodeElement"
 
 
-getAttrByAxis :: T.Text -> Axis -> Document -> T.Text
+getAttrByAxis :: Name -> Axis -> Document -> T.Text
 getAttrByAxis attr axis doc = case axis $ fromDocument doc of 
-  [cur] -> return $ getAttr cur attr
-  _ -> fail "could not find element or found too much"
+  [cur] -> getAttr cur attr
+  _     -> error "could not find element or found too much"
 
 downloadFollower :: (MonadIO m, MonadResource m, MonadBaseControl IO m)
                     => Manager
@@ -116,6 +116,7 @@ downloadFollower man = do
                  $ mutHost (fixUrlHost host)
                  $ T.unpack $ getAttrByAxis "href" exportsAxis doc
       action = getAttrByAxis "action" chartformAxis doc
+  return (follower, action)
   where
     host = Host (HTTP False) "www.finam.ru" Nothing
 
@@ -142,7 +143,8 @@ tickParams from to stock = [("market", "1")
                            ,("sep2", "2")
                            ,("daft", "1")]
   where
-    (yf, mf, df) = fromGregorian from
-    (yt, mt, dt) = fromGregorian to
+    (yf, mf, df) = toGregorian from
+    (yt, mt, dt) = toGregorian to
     fname = printf "%s_%s_%s" stock (fmtdt yf mf df) (fmtdt yt mt dt)
-    fmtdt y m d = printf "%02d%02d%02d" (y >= 2000 then y - 2000 else y - 1900) m d
+    fmtdt :: Integer -> Int -> Int -> String
+    fmtdt y m d = printf "%02d%02d%02d" (if y >= 2000 then y - 2000 else y - 1900) m d
