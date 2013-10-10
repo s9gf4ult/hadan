@@ -99,13 +99,13 @@ getAttr cur name = case node cur of
 
 
 getAttrByAxis :: Name -> Axis -> Document -> T.Text
-getAttrByAxis attr axis doc = case axis $ fromDocument doc of 
+getAttrByAxis attr axis doc = case axis $ fromDocument doc of
   [cur] -> getAttr cur attr
-  _     -> error "could not find element or found too much"
+  x     -> error $ "found " ++ (show $ length x) ++ " elements, but must be 1"
 
 downloadFollower :: (MonadIO m, MonadResource m, MonadBaseControl IO m)
                     => Manager
-                    -> m (T.Text, T.Text) -- ^ Follower link and form action 
+                    -> m (T.Text, T.Text) -- ^ Follower link and form action
 downloadFollower man = do
   gr <- mutHost (fixUrlHost host)
         . T.unpack
