@@ -4,23 +4,22 @@ module Hadan.Data.Parsers.AlorTrade where
 import Data.Attoparsec.Text
 import Hadan.Data.Candle
 import Data.Time
-import qualified Data.Text as T
 
 parseDay :: Parser Day
 parseDay = do
   y <- decimal
-  char '-'
+  _ <- char '-'
   m <- decimal
-  char '-'
+  _ <- char '-'
   d <- decimal
   return $ fromGregorian y m d
 
 parseDiffTime :: Parser DiffTime
 parseDiffTime = do
   h <- decimal
-  char ':'
+  _ <- char ':'
   m <- decimal
-  char ':'
+  _ <- char ':'
   s <- decimal
   return $ secondsToDiffTime $ s + m*60 + h*3600
 
@@ -31,7 +30,7 @@ parseDate = do
   t <- parseDiffTime
   return $ UTCTime day t
 
-parseCandle :: T.Text -> T.Text -> Integer -> Parser Candle
+parseCandle :: Board -> Ticker -> Integer -> Parser Candle
 parseCandle board ticker period = do
   skipSpace
   d <- parseDate

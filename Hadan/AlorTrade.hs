@@ -8,7 +8,6 @@ module Hadan.AlorTrade where
 
 import System.IO (stderr, hPutStrLn)
 import System.Locale
-import Control.Failure
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
@@ -27,10 +26,10 @@ import qualified Data.Text as T
 
 -- import Debug.Trace
   
-data Board = MICEX
-           | FORTS
-           | FUTURES
-           deriving (Show, Eq)
+data AlorBoard = MICEX
+               | FORTS
+               | FUTURES
+               deriving (Show, Eq)
 
 data Period = PMin
             | P5Min
@@ -52,11 +51,9 @@ periodToMinutes PHour = 60
 periodToMinutes PDay = 1440
 
 
-type Ticker = T.Text
-
 -- | Download one bunch of data
 downloadOnce :: (MonadIO m, MonadResource m, MonadBaseControl IO m)
-                => Manager -> Board -> Ticker -> Period -> Maybe UTCTime -> m (ResumableSource m Candle)
+                => Manager -> AlorBoard -> Ticker -> Period -> Maybe UTCTime -> m (ResumableSource m Candle)
 downloadOnce manager board ticker period to = do
   liftIO $ hPutStrLn stderr url
   req <- liftIO $ parseUrl url
@@ -64,7 +61,7 @@ downloadOnce manager board ticker period to = do
   let (ResumableSource s fin) = responseBody resp
   return $ ResumableSource (s
                             $= decode utf8
-                            $= (conduitParserEither $ parseCandle (T.pack $ show board) ticker $ periodToMinutes period)
+                            $= (conduitParserEither $ parseCandle (Board $ T.pack $ show board) ticker $ periodToMinutes period)
                             $= noErrors) fin
 
 
@@ -74,7 +71,7 @@ downloadOnce manager board ticker period to = do
       case n of
         Nothing -> return ()
         Just next -> case next of
-          Left err -> noErrors
+          Left _ -> noErrors
           Right (_, cndl) -> do
             yield cndl
             noErrors
@@ -84,15 +81,15 @@ downloadOnce manager board ticker period to = do
           (Absolute
            $ Host (HTTP False) "history.alor.ru" Nothing)
           "" $ [("board", show board),
-                ("ticker", T.unpack ticker),
-                ("period", show $ periodToMinutes period),
+                ("ticker", T.unpack $ unTicker ticker),
+                ("period", show (periodToMinutes period :: Int)),
                 ("bars", "1000")] ++ case to of
             Nothing -> []
             Just fto -> [("to", formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S" fto)]
 
 
 feedCandles :: (MonadIO m, MonadResource m, MonadBaseControl IO m)
-               => Manager -> Board -> Ticker -> Period -> Maybe UTCTime -> Maybe UTCTime -> Sink Candle m ignore -> m ()
+               => Manager -> AlorBoard -> Ticker -> Period -> Maybe UTCTime -> Maybe UTCTime -> Sink Candle m ignore -> m ()
 feedCandles manager board ticker period from gto sink = feedCandles' gto
   where
     feedCandles' to = do
@@ -113,7 +110,7 @@ feedCandles manager board ticker period from gto sink = feedCandles' gto
 
 
 downloadCandles :: forall m. (MonadIO m, MonadResource m, MonadBaseControl IO m)
-                   => Manager -> Board -> Ticker -> Period -> Maybe UTCTime -> Source m Candle
+                   => Manager -> AlorBoard -> Ticker -> Period -> Maybe UTCTime -> Source m Candle
 downloadCandles manager board ticker period gto = downloadCandles' gto
   where
     downloadCandles' :: Maybe UTCTime -> Source m Candle

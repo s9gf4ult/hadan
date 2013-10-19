@@ -18,10 +18,14 @@ cabal-version:       >=1.10
 
 library
 
-  exposed-modules:     Hadan.Data.Candle
+  exposed-modules:     
+                       Hadan.AlorTrade
+                     , Hadan.Data.Candle
                      , Hadan.Data.Parsers.AlorTrade
-                     , Hadan.AlorTrade
                      , Hadan.Finam
+                     , Hadan.HTTP
+                     , Hadan.URL
+                     , Hadan.XML
 
   build-depends:       base >= 3 && <5
                      , Decimal
