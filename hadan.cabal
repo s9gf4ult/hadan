@@ -22,6 +22,7 @@ library
                        Hadan.AlorTrade
                      , Hadan.Data.Candle
                      , Hadan.Data.Parsers.AlorTrade
+                     , Hadan.Data.Parsers.Finam
                      , Hadan.Finam
                      , Hadan.HTTP
                      , Hadan.URL
@@ -36,7 +37,7 @@ library
                      , containers
                      , dom-selector
                      , failure
-                     , hdbi >= 1.2
+                     , hdbi >= 1.3
                      , html-conduit
                      , http-conduit
                      , http-types
@@ -64,9 +65,9 @@ executable hadan
                      , containers
                      , dom-selector
                      , failure
-                     , hdbi >= 1.2
-                     , hdbi-conduit >= 1.2
-                     , hdbi-sqlite >= 1.2
+                     , hdbi >= 1.3
+                     , hdbi-conduit >= 1.3
+                     , hdbi-sqlite >= 1.3
                      , html-conduit
                      , http-conduit
                      , http-types

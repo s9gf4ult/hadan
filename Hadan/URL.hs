@@ -10,8 +10,8 @@ mutUrl mut s = case importURL s of
 
 -- | replace relative host to concrete
 fixUrlHost :: Host -> URL -> URL
-fixUrlHost host url@(URL {url_type = ut}) = case ut of
-  HostRelative -> url { url_type = Absolute host}
+fixUrlHost lhost url@(URL {url_type = ut}) = case ut of
+  HostRelative -> url { url_type = Absolute lhost}
   _ -> url
 
 

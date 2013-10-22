@@ -5,11 +5,16 @@
   #-}
 module Hadan.Finam where
 
+import Blaze.ByteString.Builder
+import Blaze.ByteString.Builder.Char.Utf8
 import Control.Applicative
 import Control.Monad
 import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
 import Data.Conduit
 import Data.Time
+import Hadan.Data.Candle
+import Hadan.Data.Parsers.Finam
 import Hadan.HTTP
 import Hadan.URL
 import Hadan.XML
@@ -57,8 +62,38 @@ downloadFollower man = do
   action <- getAttrByAxis "action" chartformAxis
             <$> downloadDoc man follower
   return (T.pack follower, action)
+
+
+-- | host finam.ru
+fhost :: Host
+fhost = Host (HTTP False) "www.finam.ru" Nothing
+
+downloadTicks :: (MonadIO m, MonadResource m, MonadBaseControl IO m)
+                 => Manager
+                 -> Double
+                 -> String       -- ^ Ticker name
+                 -> Day          -- ^ from date
+                 -> Day          -- ^ to date
+                 -> Source m Tick
+downloadTicks manager delay stock from to = do
+  (fol, act) <- lift $ downloadFollower manager
+  streamManyHttp manager delay (zip (urls act) $ repeat $ hdr fol) $ parseTick $ Board "MICEX"
   where
-    fhost = Host (HTTP False) "www.finam.ru" Nothing
+    urls act = map exportURL $ dayUrls lurl stock
+               $ takeWhile (>= from) $ daysBack to
+      where
+        lurl = case importURL $ T.unpack act of
+          Nothing -> error $ "could not parse action url: " ++ show act
+          Just u -> u
+    hdr fol = [("Referer", toByteString $ fromText fol)]
+
+
+-- | Infinite list of days going back in time
+daysBack :: Day -> [Day]
+daysBack day = iterate (addDays (-1)) day
+
+dayUrls :: URL -> String -> [Day] -> [URL]
+dayUrls url stock days = map (\day -> tickUrl day day stock url) days
 
 tickUrl :: Day -> Day -> String -> URL -> URL
 tickUrl from to stock url = url {url_path = (fname ++ ".txt"),
