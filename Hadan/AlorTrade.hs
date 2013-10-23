@@ -47,7 +47,7 @@ periodToMinutes PDay = 1440
 
 -- | Download one bunch of data
 downloadOnce :: (MonadIO m, MonadResource m, MonadBaseControl IO m)
-                => Manager -> AlorBoard -> Ticker -> Period -> Maybe UTCTime -> m (ResumableSource m Candle)
+                => Manager -> AlorBoard -> Ticker -> Period -> Maybe UTCTime -> Source m Candle
 downloadOnce manager board ticker period to = streamHttp manager url []
                                               $ parseCandle (Board $ T.pack $ show board) ticker
                                               $ periodToMinutes period
@@ -64,6 +64,7 @@ downloadOnce manager board ticker period to = streamHttp manager url []
             Just fto -> [("to", formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S" fto)]
 
 
+-- | If upper time limit is empty get current time as start upper time
 downloadCandles :: forall m. (MonadIO m, MonadResource m, MonadBaseControl IO m)
                    => Manager -> AlorBoard -> Ticker -> Period -> Maybe UTCTime -> Source m Candle
 downloadCandles manager board ticker period gto = downloadCandles' gto
@@ -73,9 +74,8 @@ downloadCandles manager board ticker period gto = downloadCandles' gto
       foldtime <- case to of
         Nothing -> liftIO getCurrentTime
         Just nto -> return nto
-      res <- lift $ downloadOnce manager board ticker period to
-      (sres, _) <- lift $ unwrapResumable res
-      mint <- sres =$= (yieldFold foldtime)
+      mint <- downloadOnce manager board ticker period to
+              =$= (yieldFold foldtime)
       when (mint < foldtime)
         $ downloadCandles' $ Just $ subMin mint
 

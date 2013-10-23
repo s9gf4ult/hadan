@@ -1,19 +1,20 @@
 {-# LANGUAGE
   FlexibleContexts
+, ScopedTypeVariables
   #-}
 
 module Hadan.HTTP where
 
 import Codec.Text.IConv
 import Control.Concurrent (threadDelay)
+import Control.Exception.Lifted
 import Control.Monad (when)
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
-import Data.Attoparsec.Text
+import Data.Attoparsec.Text (Parser)
 import Data.Conduit
 import Data.Conduit.Attoparsec
 import Data.Conduit.Binary
-import Data.Conduit.Internal (ResumableSource(..))
 import Data.Conduit.Text
 import Network.HTTP.Conduit
 import Network.HTTP.Types.Header
@@ -35,26 +36,38 @@ downloadDoc manager url = do
 
 
 
--- | Stream
+-- | Try to download data and ignore any excpetions until download is
+-- complete. Then steram parsed data ignoring parser errors
 streamHttp :: (MonadIO m, MonadResource m, MonadBaseControl IO m)
               => Manager
               -> String          -- ^ url
               -> RequestHeaders  -- ^ request headers
               -> Parser a        -- ^ parser to get input
-              -> m (ResumableSource m a)
+              -> Source m a
 streamHttp manager url hdrs parser = do
-  liftIO $ hPutStrLn stderr $ "streaming: " ++ url
-  lreq <- liftIO $ parseUrl url
+  lreq <- liftIO $ do
+    hPutStrLn stderr $ "downloading: " ++ url
+    parseUrl url
   let req = lreq {requestHeaders = hdrs}
-  resp <- http req manager
-  let (ResumableSource s fin) = responseBody resp
-  return $ ResumableSource (s
-                            $= decode utf8
-                            $= conduitParserEither parser
-                            $= noErrors) fin
-
-
+  resp <- lift $ download req
+  let lbs = responseBody resp
+  prnt "streaming..."
+  sourceLbs lbs
+    $= decode utf8
+    $= conduitParserEither parser
+    $= noErrors
   where
+    download req = do
+      r <- try $ do
+        httpLbs req manager
+      case r of
+        Left (e :: SomeException) -> do
+          prnt $ "Exception occured: " ++ show e
+          download req
+        Right resp -> do
+          prnt "download complete"
+          return resp
+
     noErrors = do
       n <- await
       case n of
@@ -64,6 +77,11 @@ streamHttp manager url hdrs parser = do
           Right (_, cndl) -> do
             yield cndl
             noErrors
+    prnt x = liftIO $ hPutStrLn stderr x
+
+
+
+
 
 streamManyHttp :: (MonadIO m, MonadResource m, MonadBaseControl IO m)
                   => Manager
@@ -73,13 +91,11 @@ streamManyHttp :: (MonadIO m, MonadResource m, MonadBaseControl IO m)
                   -> Source m a
 streamManyHttp _ _ [] _ = return ()
 streamManyHttp man del ((url, hdrs):urls) parser = do
-  (source, _) <- lift $ do
-    src <- streamHttp man url hdrs parser
-    unwrapResumable src
-  source
+  streamHttp man url hdrs parser
   when (delay > 0) $ liftIO $ do
-    hPutStrLn stderr $ "delaying for " ++ show delay ++ " seconds"
-    threadDelay $ round $ delay * 1e6
-  streamManyHttp man delay urls parser
+    hPutStrLn stderr $ "delaying for " ++ show mdel ++ " seconds"
+    threadDelay delay
+  streamManyHttp man mdel urls parser
   where
-    delay = max 0 del
+    mdel = max 0 del
+    delay = round $ mdel * 1e6
